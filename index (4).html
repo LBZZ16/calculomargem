@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cálculo de Margem</title>
+<style>
+  :root {
+    --bg:#0a0e1a; --surface:#111827; --surface2:#1a2235; --border:#1e2d45;
+    --accent:#00d4aa; --accent2:#3b82f6; --accent3:#f59e0b;
+    --danger:#ef4444; --purple:#a855f7;
+    --text:#e8edf5; --text-muted:#6b7fa3; --text-dim:#3d5070;
+    --fonte:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+    --mono:ui-monospace,'Cascadia Mono','Segoe UI Mono',Consolas,'Courier New',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--fonte);min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,170,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,170,.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;}
+  .container{max-width:1260px;margin:0 auto;padding:0 24px;position:relative;z-index:1;}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+  header{padding:40px 0 0;text-align:center;}
+  h1{font-family:var(--fonte);font-size:clamp(24px,4.5vw,40px);font-weight:700;letter-spacing:-.01em;}
+  h1 span{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+
+  .tabs{display:flex;justify-content:center;gap:8px;margin:28px 0 32px;}
+  .tab-btn{padding:9px 26px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-family:var(--fonte);font-size:13.5px;font-weight:600;cursor:pointer;transition:all .2s;}
+  .tab-btn:hover{color:var(--text);border-color:var(--text-muted);}
+  .tab-btn.active{background:var(--accent);border-color:var(--accent);color:#0a0e1a;}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+
+  .split{display:grid;grid-template-columns:1fr 400px;gap:24px;margin-bottom:48px;align-items:start;}
+  @media(max-width:1040px){.split{grid-template-columns:1fr;}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;}
+  .card-titulo{font-family:var(--fonte);font-size:14px;font-weight:600;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:9px;}
+  .ponto{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);flex-shrink:0;}
+
+  .form-grid{display:grid;grid-template-columns:92px 1fr 128px auto;gap:10px;align-items:end;}
+  @media(max-width:720px){.form-grid{grid-template-columns:1fr 1fr;}}
+  .campo-rot{font-size:12px;color:var(--text-muted);font-weight:500;margin-bottom:5px;display:block;}
+  input,select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fonte);font-size:13.5px;padding:10px 12px;outline:none;transition:border-color .18s;}
+  input:focus,select:focus{border-color:var(--accent);}
+  input::placeholder{color:var(--text-dim);}
+  input.mono{font-family:var(--mono);font-weight:600;}
+  input.valor{text-align:right;font-family:var(--mono);font-weight:600;}
+  .btn{padding:10px 22px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),#00a884);color:#0a0e1a;font-family:var(--fonte);font-size:13.5px;font-weight:600;cursor:pointer;transition:transform .15s,box-shadow .15s;white-space:nowrap;}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(0,212,170,.32);}
+
+  .previa{margin-top:12px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-muted);min-height:22px;flex-wrap:wrap;}
+  .tag{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:100px;}
+  .tag-sim{background:rgba(0,212,170,.13);color:var(--accent);}
+  .tag-nao{background:rgba(107,127,163,.12);color:var(--text-muted);}
+  .tag-desc{background:rgba(239,68,68,.12);color:var(--danger);}
+  .tag-ir{background:rgba(245,158,11,.13);color:var(--accent3);}
+  .tag-alerta{background:rgba(245,158,11,.18);color:var(--accent3);}
+  .erro-box{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px 14px;color:var(--danger);font-size:12.5px;display:none;margin-top:12px;}
+
+  .bloco{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-top:16px;}
+  .bloco-cab{padding:12px 18px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .bloco-cab h2{font-family:var(--fonte);font-size:13px;font-weight:600;color:var(--text);}
+  .pill{font-family:var(--mono);font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:100px;background:rgba(0,212,170,.13);color:var(--accent);}
+  .pill.vermelho{background:rgba(239,68,68,.12);color:var(--danger);}
+  .pill.cinza{background:rgba(107,127,163,.12);color:var(--text-muted);}
+
+  .linha{display:grid;grid-template-columns:54px 1fr 112px 96px 24px;gap:8px;align-items:center;padding:8px 18px;border-bottom:1px solid rgba(30,45,69,.4);}
+  .linha:last-child{border-bottom:none;}
+  .linha:hover{background:rgba(26,34,53,.5);}
+  .linha-cab{font-size:11.5px;color:var(--text-dim);font-weight:500;background:rgba(10,14,26,.4);padding-top:9px;padding-bottom:9px;}
+  .linha-cab:hover{background:rgba(10,14,26,.4);}
+  .cod{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent);}
+  .campo-linha{background:transparent;border:1px solid transparent;border-radius:7px;padding:5px 8px;font-size:12.5px;}
+  .campo-linha:hover{border-color:var(--border);}
+  .campo-linha:focus{border-color:var(--accent);background:var(--bg);}
+  .campo-linha.valor{font-family:var(--mono);font-weight:600;text-align:right;}
+  .credito{color:var(--accent);}
+  .debito{color:var(--danger);}
+  .neutro{color:var(--text-muted);}
+  .marcas{display:flex;gap:4px;}
+  .marca{flex:1;font-family:var(--mono);font-size:9.5px;font-weight:600;padding:5px 0;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;transition:all .15s;letter-spacing:.02em;}
+  .marca:hover{border-color:var(--text-muted);color:var(--text-muted);}
+  .marca.on[data-flag=consignavel]{background:rgba(0,212,170,.15);border-color:rgba(0,212,170,.45);color:var(--accent);}
+  .marca.on[data-flag=ir]{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.45);color:var(--accent3);}
+  .abatido{font-family:var(--mono);font-size:11px;font-weight:600;text-align:right;color:var(--text-muted);}
+  .abatido b{color:var(--accent3);font-weight:600;}
+  .btn-x{background:transparent;border:none;color:var(--text-dim);font-size:16px;line-height:1;cursor:pointer;padding:2px;border-radius:5px;}
+  .btn-x:hover{color:var(--danger);}
+  .vazio{padding:22px 18px;text-align:center;color:var(--text-dim);font-size:12.5px;line-height:1.6;}
+  @media(max-width:720px){
+    .linha{grid-template-columns:1fr 1fr 24px;row-gap:6px;padding:10px 14px;}
+    .linha > .cod{grid-row:1;grid-column:1;}
+    .linha > .campo-linha.nome{grid-row:1;grid-column:2;}
+    .linha > .campo-linha.valor{grid-row:2;grid-column:1;}
+    .linha > .marcas,.linha > .abatido{grid-row:2;grid-column:2;}
+    .linha > .btn-x{grid-row:1;grid-column:3;justify-self:end;}
+    .linha-cab{display:none;}
+  }
+
+  .base-ir-card{background:var(--surface);border:1px solid rgba(245,158,11,.3);border-radius:16px;margin-top:16px;overflow:hidden;}
+  .base-ir-cab{padding:13px 18px;background:rgba(245,158,11,.07);border-bottom:1px solid rgba(245,158,11,.18);}
+  .base-ir-cab h2{font-size:13px;font-weight:600;color:var(--accent3);}
+  .base-ir-cab p{font-size:12.5px;color:var(--text-muted);margin-top:4px;line-height:1.5;}
+  .base-ir-corpo{padding:16px 18px;display:flex;flex-direction:column;gap:12px;}
+  .opcoes{display:flex;gap:8px;flex-wrap:wrap;}
+  .opcao{flex:1;min-width:190px;text-align:left;padding:11px 14px;border-radius:11px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-family:var(--fonte);font-size:13px;cursor:pointer;transition:all .16s;}
+  .opcao:hover{border-color:var(--text-muted);color:var(--text);}
+  .opcao.on{border-color:rgba(245,158,11,.55);background:rgba(245,158,11,.09);color:var(--text);}
+  .opcao b{display:block;font-weight:600;margin-bottom:2px;}
+  .opcao span{font-size:12px;color:var(--text-dim);line-height:1.4;}
+  .opcao.on span{color:var(--text-muted);}
+  .base-ir-linha{display:grid;grid-template-columns:1fr 150px;gap:10px;align-items:center;}
+  @media(max-width:600px){.base-ir-linha{grid-template-columns:1fr;}}
+  .base-ir-resumo{font-size:12.5px;color:var(--text-muted);line-height:1.6;}
+  .base-ir-resumo b{color:var(--accent3);font-weight:600;}
+
+  .painel{position:sticky;top:20px;display:flex;flex-direction:column;gap:12px;}
+  @media(max-width:1040px){.painel{position:static;}}
+  .res-block{border-radius:14px;padding:15px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+  .res-block-label{font-size:12.5px;font-weight:600;opacity:.85;}
+  .res-block-formula{font-family:var(--mono);font-size:10.5px;opacity:.5;margin-top:3px;}
+  .res-block-value{font-family:var(--fonte);font-size:23px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;}
+  .res-totais{background:var(--surface);border:1px solid var(--border);}
+  .res-totais .res-block-value{font-size:15px;font-family:var(--mono);}
+  .res-vant .res-block-value{color:var(--accent);}
+  .res-ir .res-block-value{color:var(--accent3);}
+  .res-desc .res-block-value{color:var(--danger);}
+  .rateio{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:14px;padding:13px 16px;font-size:11.5px;line-height:1.65;color:var(--text-muted);}
+  .rateio-tit{font-size:12.5px;font-weight:600;color:var(--accent3);margin-bottom:7px;}
+  .rateio-conta{font-family:var(--mono);font-size:11px;color:var(--text);background:rgba(10,14,26,.5);border-radius:7px;padding:6px 9px;margin:6px 0;}
+  .rateio b{color:var(--accent3);font-weight:600;}
+  .res-base{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);}
+  .res-base .res-block-value{color:var(--accent2);font-size:26px;}
+  .res-40{background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.25);}
+  .res-40 .res-block-value{color:var(--accent);}
+  .res-10{background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.25);}
+  .res-10 .res-block-value{color:var(--purple);}
+  .res-50{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);}
+  .res-50 .res-block-value{color:var(--accent3);}
+  .res-70{background:linear-gradient(135deg,rgba(0,212,170,.14),rgba(59,130,246,.08));border:1px solid rgba(0,212,170,.4);}
+  .res-70 .res-block-value{color:var(--accent);font-size:29px;}
+  .res-70 .res-block-label{opacity:1;color:var(--accent);white-space:nowrap;}
+  .painel-vazio{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:48px 22px;text-align:center;color:var(--text-dim);font-size:13px;line-height:1.65;}
+  .painel-vazio .icone{font-size:38px;opacity:.35;display:block;margin-bottom:12px;}
+
+  .manual-wrap{max-width:880px;margin:0 auto 48px;display:flex;flex-direction:column;gap:24px;}
+  .manual-loading{text-align:center;padding:60px 20px;color:var(--text-muted);font-size:14px;}
+  .rubrica-panel{background:var(--surface);border:1px solid rgba(0,212,170,.3);border-radius:20px;overflow:hidden;}
+  .rubrica-panel-header{padding:20px 24px;background:linear-gradient(135deg,rgba(0,212,170,.12),rgba(59,130,246,.06));border-bottom:1px solid rgba(0,212,170,.2);}
+  .rubrica-panel-header h2{font-family:var(--fonte);font-size:17px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:10px;}
+  .rubrica-panel-header p{font-size:13px;color:var(--text-muted);margin-top:6px;line-height:1.5;}
+  .rubrica-count-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--accent);color:#0a0e1a;font-family:var(--fonte);font-size:12.5px;font-weight:700;min-width:26px;height:26px;padding:0 7px;border-radius:100px;flex-shrink:0;}
+  .rubrica-search{padding:14px 20px;border-bottom:1px solid var(--border);}
+  .rubrica-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));max-height:460px;overflow-y:auto;}
+  .rubrica-item{display:flex;align-items:flex-start;gap:10px;padding:11px 20px;border-bottom:1px solid rgba(30,45,69,.4);border-right:1px solid rgba(30,45,69,.4);}
+  .rubrica-item:hover{background:var(--surface2);}
+  .rubrica-cod{flex-shrink:0;background:rgba(0,212,170,.1);color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:600;padding:2px 7px;border-radius:6px;margin-top:2px;}
+  .rubrica-nome{font-size:12px;line-height:1.4;}
+  .desconto-panel{background:var(--surface);border:1px solid rgba(239,68,68,.25);border-radius:20px;overflow:hidden;}
+  .desconto-panel-header{padding:18px 24px;background:rgba(239,68,68,.06);border-bottom:1px solid rgba(239,68,68,.15);}
+  .desconto-panel-header h2{font-family:var(--fonte);font-size:16px;font-weight:600;color:var(--danger);}
+  .desconto-panel-header p{font-size:13px;color:var(--text-muted);margin-top:4px;line-height:1.5;}
+  .desconto-item{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:11px 24px;border-bottom:1px solid rgba(30,45,69,.5);}
+  .desconto-item:last-child{border-bottom:none;}
+  .desconto-item:hover{background:var(--surface2);}
+  .desconto-nome{font-size:13px;font-weight:500;}
+  .desconto-cod{font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-top:2px;}
+  .desconto-tipo{font-size:11px;padding:2px 9px;border-radius:6px;font-weight:600;white-space:nowrap;background:rgba(239,68,68,.1);color:var(--danger);}
+  .desconto-tipo.rateado{background:rgba(245,158,11,.13);color:var(--accent3);}
+  .calculo-panel,.naoentra-panel{background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;}
+  .calculo-panel-header,.naoentra-panel-header{padding:18px 24px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .calculo-panel-header h2,.naoentra-panel-header h2{font-family:var(--fonte);font-size:16px;font-weight:600;}
+  .calculo-step{padding:16px 24px;border-bottom:1px solid rgba(30,45,69,.5);display:flex;align-items:flex-start;gap:16px;}
+  .calculo-step:last-child{border-bottom:none;}
+  .calculo-step-num{flex-shrink:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:600;margin-top:2px;}
+  .s1{background:rgba(59,130,246,.15);color:var(--accent2);}
+  .s2{background:rgba(245,158,11,.15);color:var(--accent3);}
+  .s3{background:rgba(0,212,170,.12);color:var(--accent);}
+  .s4{background:rgba(168,85,247,.12);color:var(--purple);}
+  .s5{background:rgba(245,158,11,.12);color:var(--accent3);}
+  .s6{background:rgba(0,212,170,.2);color:var(--accent);}
+  .calculo-step-title{font-weight:700;font-size:14px;margin-bottom:4px;}
+  .calculo-step-desc{font-size:13px;color:var(--text-muted);line-height:1.55;}
+  .calculo-step-formula{font-family:var(--mono);font-size:12.5px;color:var(--text-muted);background:var(--surface2);padding:6px 10px;border-radius:8px;margin-top:6px;display:inline-block;}
+  .naoentra-item{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:11px 24px;border-bottom:1px solid rgba(30,45,69,.5);}
+  .naoentra-item:last-child{border-bottom:none;}
+  .naoentra-item:hover{background:var(--surface2);}
+  .naoentra-nome{font-size:13px;color:var(--text-muted);}
+  .naoentra-motivo{font-size:11px;color:var(--text-dim);background:var(--surface2);padding:2px 8px;border-radius:6px;white-space:nowrap;}
+
+  footer{text-align:center;padding:24px 0 40px;color:var(--text-dim);font-size:12px;line-height:1.6;}
+  .fade-in{animation:fadeIn .35s ease forwards;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header><h1><span>Cálculo de Margem</span></h1></header>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-aba="calculo">Cálculo</button>
+    <button class="tab-btn" data-aba="manual">Manual</button>
+  </div>
+
+  <!-- ═══════════ CÁLCULO ═══════════ -->
+  <div id="aba-calculo" class="tab-content active">
+    <div class="split">
+      <div>
+        <div class="card">
+          <div class="card-titulo"><span class="ponto"></span>Lançar rubrica</div>
+          <div class="form-grid">
+            <div>
+              <label class="campo-rot" for="in-cod">Código</label>
+              <input id="in-cod" class="mono" list="lista-codigos" placeholder="1005" maxlength="4" inputmode="numeric" autocomplete="off">
+              <datalist id="lista-codigos"></datalist>
+            </div>
+            <div>
+              <label class="campo-rot" for="in-nome">Descrição</label>
+              <input id="in-nome" placeholder="Preenche sozinho pelo código" autocomplete="off">
+            </div>
+            <div>
+              <label class="campo-rot" for="in-valor">Valor</label>
+              <input id="in-valor" class="valor" placeholder="0,00" inputmode="decimal" autocomplete="off">
+            </div>
+            <button class="btn" id="btn-add">Adicionar</button>
+          </div>
+          <div class="previa" id="previa"></div>
+          <div class="erro-box" id="erro"></div>
+        </div>
+        <div id="tabelas"></div>
+        <div class="base-ir-card" id="base-ir-card" style="display:none">
+          <div class="base-ir-cab">
+            <h2>Base de cálculo do imposto de renda</h2>
+            <p>O IRRF não é abatido inteiro: só a parte proporcional à base consignável.
+            Para isso o cálculo precisa saber sobre quanto o imposto incidiu.</p>
+          </div>
+          <div class="base-ir-corpo">
+            <div class="opcoes">
+              <button class="opcao on" data-modo="auto">
+                <b>Somar as rubricas marcadas IR</b>
+                <span>Use quando você lançou também as vantagens não consignáveis.</span>
+              </button>
+              <button class="opcao" data-modo="manual">
+                <b>Informar do contracheque</b>
+                <span>Use quando lançou só os consignáveis. Copie a linha Base IRRF.</span>
+              </button>
+            </div>
+            <div class="base-ir-linha" id="base-ir-entrada" style="display:none">
+              <label class="campo-rot" for="in-baseir" style="margin:0">Base IRRF do contracheque</label>
+              <input id="in-baseir" class="valor" placeholder="0,00" inputmode="decimal" autocomplete="off">
+            </div>
+            <div class="base-ir-resumo" id="base-ir-resumo"></div>
+          </div>
+        </div>
+      </div>
+      <div class="painel" id="painel"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ MANUAL ═══════════ -->
+  <div id="aba-manual" class="tab-content">
+    <div class="manual-wrap" id="manual-wrap">
+      <div class="manual-loading">Carregando manual...</div>
+    </div>
+  </div>
+
+  <footer>
+    Manual de Vantagens e Descontos META 4 – Abril/2026 · DRH/DGF<br>
+    Ferramenta de conferência — versão sem servidor. O valor oficial é o apurado pelo sistema de folha.
+  </footer>
+</div>
+
+<script>
+// ═══ Dados do Manual META 4 — Abril/2026 (DRH/DGF) — embutidos ═══
+const DADOS_RUBRICAS = [{"codigo": "1005", "nome": "VENCIMENTO BASE", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1007", "nome": "VENCIMENTO – HORA ATIVIDADE", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1009", "nome": "VENC. DOS CARGOS DE PROVIMENTO EM COMISSÃO (S/V)", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1012", "nome": "SOLDO PESSOAL MILITAR", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1016", "nome": "GRATIFICAÇÃO FIXA DE CARGO EM COMISSÃO (C/V)", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1026", "nome": "AULAS EXTRAORDINÁRIAS", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1039", "nome": "GRATIFICAÇÃO DE PERICULOSIDADE", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1046", "nome": "PISO MAGISTÉRIO – AÇÃO ORDINÁRIA", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1053", "nome": "ADICIONAL DE VOO – AAV (PARCELA FIXA)", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1056", "nome": "GRATIF. ADICIONAL POR TEMPO DE SERVIÇO – EMENDA 19", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1059", "nome": "GRATIFICAÇÃO ADICIONAL POR TEMPO DE SERVIÇO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1069", "nome": "GRATIFICAÇÃO TIDE", "consignavel": false, "ir": true, "previdencia": true, "desativada": true}, {"codigo": "1079", "nome": "SERVIÇO EXTRAORDINÁRIO DIURNO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1083", "nome": "GRATIFICAÇÃO DECRETO 3105/97", "consignavel": true, "ir": true, "previdencia": true, "desativada": true}, {"codigo": "1089", "nome": "GRATIFICAÇÃO DE EDUCAÇÃO ESPECIAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1093", "nome": "GRAT. REP. GABINETE – DAS", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1096", "nome": "GRAT. ENCARGOS ESPECIAIS", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1099", "nome": "GRAT. REP. TIPO II", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1103", "nome": "AULAS EXTRAORDINÁRIAS – HORA ATIVIDADE", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1109", "nome": "PRÊMIO DE PRODUTIVIDADE QUOTAS VAR. - ESF. FISCAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1119", "nome": "FUNÇÃO GRATIFICADA", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1126", "nome": "DIFERENÇA DO SALÁRIO MÍNIMO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1129", "nome": "GRATIFICAÇÃO DE INSALUBRIDADE", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1133", "nome": "GRATIFICAÇÃO PELO EXERCÍCIO NO PERÍODO NOTURNO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1136", "nome": "PRÊMIO PRODUTIVIDADE – QUOTAS FIXAS", "consignavel": true, "ir": true, "previdencia": true, "desativada": true}, {"codigo": "1139", "nome": "GRATIFICAÇÃO DE REPRESENTAÇÃO DE GABINETE", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1145", "nome": "PERÍODO NOTURNO – AULAS EXTRAORDINÁRIAS", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1149", "nome": "GRATIFICAÇÃO CHEFIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1156", "nome": "GRATIFICAÇÃO FUNÇÃO DIRETOR AUXILIAR ESTAB. ENSINO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1159", "nome": "GRATIFICAÇÃO FUNÇÃO DIRETOR ESTABELECIMENTO DE", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1166", "nome": "GRATIFICAÇÃO FUNÇÃO SECRETÁRIO ESTAB. ENSINO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1168", "nome": "PRÊMIO PRODUTIV. QUOTAS ESF. FISCAL COLETIVO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1169", "nome": "SUBSTITUIÇÃO DE CARGO EM COMISSÃO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1176", "nome": "PRÊMIO PRODUTIVIDADE – PROCURADORES", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1179", "nome": "GRATIFICAÇÃO EXERCÍCIO EM ZONA FISCAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1189", "nome": "REDUTOR SALARIAL", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1205", "nome": "GRATIFICAÇÃO DE PLANTÃO DOCENTE DE SOBREAVISO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1212", "nome": "DIFERENÇA DE SOLDO – AÇÃO JUDICIAL", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1219", "nome": "PISO SOCIAL COMPLEMENTAR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1223", "nome": "SALÁRIO MATERNIDADE", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1225", "nome": "REMUN. PELO EXERC. DE C/C NAS IEES LEI 16372/09", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1226", "nome": "DIFERENÇA SALÁRIO MIN. ESTATUTÁRIO (CONGELADA)", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1229", "nome": "ABONO PERMANÊNCIA", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1236", "nome": "AUXÍLIO MORADIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1237", "nome": "REVISÃO – AUXÍLIO MORADIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1239", "nome": "SUBSTITUIÇÕES", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1259", "nome": "GRATIFICAÇÃO DE REPRESENTAÇÃO DE DELEGADOS", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1276", "nome": "GRAT. PELA REALIZ. TRAB. RELEVANTE ATIV. DE", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1281", "nome": "COMPLEMENTAÇÃO DE HORA ATIVIDADE", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1282", "nome": "COMPLEMENT. DE HORA ATIVIDADE – AULAS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1283", "nome": "SUBSTITUIÇÃO FUNÇÃO GRATIFICADA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1303", "nome": "SALÁRIO-FAMÍLIA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1309", "nome": "GRAT. EXERC. TRAB. ESP. RISCO VIDA SAÚDE S/ ADIC", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1321", "nome": "FUNÇÕES ACADÊMICAS – IEES", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1326", "nome": "AJUDA DE CUSTOS", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1330", "nome": "REGIME DE PLANTÃO SOBREAVISO-AGENTE UNIVERSITÁRIO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1333", "nome": "GRAT. TEMPO INTEGRAL – SOBRE A REMUNERAÇÃO", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1334", "nome": "GRATIFICAÇÃO DE RESPONSABILIDADE ACADÊMICA – GRA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1346", "nome": "ADICIONAL DE VOO DIURNO – AAV/PARC. VARIÁVEL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1349", "nome": "AUXÍLIO ALIMENTAÇÃO", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1353", "nome": "ADICIONAL DE VOO NOTURNO – AAV/PARC. VARIÁVEL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1357", "nome": "SUBSTITUIÇÃO FUNRESPOL", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1359", "nome": "GRATIFICAÇÃO FUNRESPOL", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1363", "nome": "AUXÍLIO DOENÇA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1364", "nome": "GRATIFICAÇÃO TECNOLOGIA E ENSINO (GTE)", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1373", "nome": "EQUIPARAÇÃO VENCIMENTOS – AÇÃO JUDICIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1375", "nome": "FUNÇÃO DE GESTÃO TRIBUTÁRIA – FGT", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1383", "nome": "GRAT ATIV UM PENAL OU CORR INTRA MUROS – GADI", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1405", "nome": "FUNÇÃO DE DESENVOLVIMENTO RURAL – FDR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1406", "nome": "GOZO DE FÉRIAS COMISSIONADOS", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1409", "nome": "TEMPO INTEGRAL E DEDIC. EXCLUSIVA – POLÍCIA CIVIL", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1416", "nome": "AJUSTE FÉRIAS CARGO COMISSIONADO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1425", "nome": "SUBSTITUIÇÃO FUNÇÃO DE GESTÃO TRIBUTÁRIA – FGT", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1429", "nome": "GRATIFICAÇÃO REGÊNCIA DE CLASSE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1431", "nome": "ABONO DE PERMANÊNCIA – DECRETO 8296/2017", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1436", "nome": "GRAT. DE ZONA E LOCAL – DEPEN", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1439", "nome": "GRATIFICAÇÃO LOCALIDADE ESPECIAL DA PM", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1449", "nome": "GRATIFICAÇÃO DE INCUMBÊNCIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1450", "nome": "TIDE ADMINISTRATIVO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1451", "nome": "GRAT ESP. SERV INATIVO COLÉGIO CÍVICO-MILITAR – GESICM", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1453", "nome": "HORAS GRATIFICAÇÃO DE PLANTÃO AO DOCENTE – GPD", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1454", "nome": "CRÉDITO PARCELADO AÇÃO JUDICIAL – LEI 18664/2015", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1456", "nome": "VANTAGEM PESSOAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1459", "nome": "DIFERENÇA VENCIMENTOS – SENTENÇA JUDICIAL DIÁRIAS", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1469", "nome": "SERVIÇO EXTRAORDINÁRIO NOTURNO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1476", "nome": "SERVIÇO EXTRAORDINÁRIO – DOMINGO / FERIADO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1479", "nome": "DIFERENÇA DE VENCIMENTO JUDICIAL – CUMPRIMENTO DO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1483", "nome": "AJUDA PARA MANUTENÇÃO INSTRUMENTO / VESTUÁRIO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1486", "nome": "FUNÇÃO PRIVATIVA DO DETRAN – FPD I", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1489", "nome": "GRAT. DE PERICULOSIDADE – TEC. RADIOLOGIA", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1493", "nome": "GRAT EX ENC MEMBRO DE BCA EXAM TRÂNSITO – GEBET", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1497", "nome": "FUNÇÃO PRIVATIVA DO DETRAN – FPD II", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1503", "nome": "TEMPO INTEGRAL E DEDICAÇÃO EXCLUSIVA – P. CIVIL", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1509", "nome": "ADICIONAL TRANSFERÊNCIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1511", "nome": "REMUNERAÇÃO PELO EXERCÍCIO DO C/C LEI 18665 DE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1512", "nome": "REMUNERAÇÃO PELO EXERCÍCIO DA FGP – LEI 18665 DE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1513", "nome": "FUNÇÃO PRIVATIVA DO DETRAN – FPD IV", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1519", "nome": "ABONO PIS/PASEP", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1520", "nome": "ABONO LEI 21.108/2022", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1523", "nome": "GRATIFICAÇÃO RODOVIÁRIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1525", "nome": "2432 – GRAT. DE ENSINO – COL. DA POL. MILITAR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1526", "nome": "REVISÃO – 2432 – GRAT. DE ENSINO – COL. DA POL. MILITAR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1529", "nome": "GRATIF. FUNÇÃO LEI 10118 ART. 13 TEATRO GUAÍRA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1531", "nome": "GRATIF. POR DESEMPENHO DE ATIV.FAZENDÁRIA – GEDAF", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1533", "nome": "AUXÍLIO ALIMENTAÇÃO – LEI 20937/21", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1534", "nome": "FUNÇÃO PRIVATIVA TRANSITÓRIA – FPT", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1536", "nome": "GRATIFICAÇÃO DE REPRESENTAÇÃO DE ESCRITÓRIO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1537", "nome": "GRATIFICAÇÃO DE RESULTADO APRENDIZAGEM - GRAP", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1546", "nome": "SOLDO DE GESTOR EM DELEGACIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1549", "nome": "SENTENÇA JUDICIAL ALUGUEL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1553", "nome": "ADICIONAL NOTURNO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1562", "nome": "REMUNERAÇÃO ATIVIDADE PROJETOS", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1565", "nome": "REMUNERAÇÃO ATIVIDADE EXTENSÃO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1572", "nome": "REMUNERAÇÃO ATIVIDADE DOCENTES", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1574", "nome": "GRATIFICAÇÃO DE INCENTIVO À TITULARIDADE – GITI", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1575", "nome": "2324 – GRATIFICAÇÃO DE ENSINO – PMPR", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1576", "nome": "REVISÃO – 2324 – GRATIFICAÇÃO DE ENSINO – PMPR", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1578", "nome": "GRATIFICAÇÃO DE INCENTIVO ESCALONADA MENSAL – GIEM", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1579", "nome": "SUBSTITUIÇÃO DE PESSOAL MILITAR – SOLDO", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1582", "nome": "SUBSÍDIO DE CARGO EM COMISSIONADO EXECUTIVO – CCE -C/V e", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1589", "nome": "GRATIFICAÇÃO POLICIAL MILITAR ESPECIAL", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1599", "nome": "SUBSTITUIÇÃO PM – GRATIFICAÇÃO ESPECIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1601", "nome": "OPERAÇÃO SAFRA", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "1602", "nome": "GRATIF. PELO EXERCÍCIO DE ENCARGOS ESPECIAIS – GEE", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1609", "nome": "GRATIFICAÇÃO FUNÇÃO MILITAR (CURSOS)", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1610", "nome": "SUBSÍDIO DE FUNÇÃO COMISSIONADA EXECUTIVA – FCE", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1612", "nome": "OPERAÇÃO PAPAI NOEL – NATAL SEGURO", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "1616", "nome": "PARCELA COMPLEMENTAR DE VENCIMENTO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1619", "nome": "RISCO DE VIDA – POLÍCIA MILITAR", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1634", "nome": "REEMBOLSO DE ASSISTÊNCIA ODONTOLÓGICA – TITULAR", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1635", "nome": "GRATIFICAÇÃO DE TITULAÇÃO – AGEUNI", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1639", "nome": "INDENIZ. DE REPRESENT. PESSOAL MILITAR – CURSOS", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1645", "nome": "ADICIONAL DE TITULAÇÃO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1646", "nome": "GRATIF. DE MANUT. – JUDICIAL SEM DESC.PREVIDENCIÁRIO", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1649", "nome": "AJUDA DE CUSTO DA PM", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "1653", "nome": "DIFERENÇA DE VENCIMENTOS", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1654", "nome": "ADEQUAÇÃO DE CARGA HORÁRIA-LC – LEI Nº 242/2021", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1656", "nome": "GRATIF. DE MANUTENÇÃO – JUDICIAL C/ DESCONTO PREVIDENC", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1659", "nome": "AQUISIÇÃO DE UNIFORMES DO PM", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "1663", "nome": "GRAT. EXEC. TRAB. ESPEC. RISCO VIDA E SAÚDE S/ ADIC E S/", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1665", "nome": "BÔNUS DE DESEMPENHO – BD", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1667", "nome": "FUNÇÃO DE GESTÃO PÚBLICA – FGP", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1675", "nome": "INSALUBRIDADE JUDICIAL – IEES", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1680", "nome": "ADICIONAL DE ATIVIDADE SOCIO EDUCATIVA – AAS", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1684", "nome": "ADICIONAL DE ATIV. DE FISCALIZAÇÃO AGROPECUÁRIA – AAFA", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1685", "nome": "REVISÃO – ADICIONAL DE ATIV. DE FISCALIZAÇÃO AGROPECUÁRIA – AAFA", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1689", "nome": "INDENIZAÇÃO SERVIÇO EXTRAORDINÁRIO- PM", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1692", "nome": "OPERAÇÃO ESCUDO", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1699", "nome": "OPERAÇÃO VERÃO", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "1719", "nome": "GRATIFICAÇÃO DE PRESTAÇÃO DE SERVIÇOS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1720", "nome": "QUOTAS DE PRODUTIVIDADE ACUMULADAS EM CC", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1723", "nome": "PRÊMIO PRODUTIVIDADE QUOTAS VAR. – DESEMP. PLURAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1728", "nome": "ENC. ESPECIAIS/INDENIZ. DE REPRESENTAÇÃO- CAPE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1730", "nome": "PARCELA TRANSIT.PELO EXERC. DE ENSINO NAS ESCOLAS DE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1732", "nome": "INDENIZAÇÃO DE REPRESENTAÇÃO – ASSESSORIA MILITAR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1738", "nome": "RESSARCIMENTO DE PLANO / SEGURO ASSISTÊNCIA SAÚDE", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1752", "nome": "GRATIFICAÇÃO DE ATIVIDADE ARTÍSTICA – GAA", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1754", "nome": "VERBA DE REPRESENTAÇÃO – LIMINAR JUDICIAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1755", "nome": "ASSISTENCIA SAÚDE – REPR", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1757", "nome": "INDEN. DE REPRESENT. FORÇA ALFA – CIPOFRON-FA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1758", "nome": "BÔNUS DE RESULTADO DE APRENDIZAGEM – BRA", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1760", "nome": "GRATIF. PELO EXERC. DE ENC.DE MEMBRO DE BANCA", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1761", "nome": "PRÊMIO PRODUTIV. QUOTAS VAR. – ESF. FISCAL – CARGO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1762", "nome": "PRÊMIO PRODUTIVIDADE QUOTAS FIXAS CARGO COMISSÃO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1766", "nome": "VERBA DE REPRESENTAÇÃO", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "1770", "nome": "GRAT. EXER ENC INST CURSO REC COND INFRA – GIRCE", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1774", "nome": "FUNÇÃO PRIVATIVA DO DETRAN – FPD III", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1776", "nome": "GRATIFICAÇÃO DE INSALUBRIDADE – MANDADO DE SEGURANÇA", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1779", "nome": "GRATIFICAÇÃO POR APRESENTAÇÃO DE ESPETÁCULO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1782", "nome": "GRATIFICAÇÃO DE SEGURANÇA PATRIMONIAL – GSP", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1783", "nome": "PRÊMIO ESPECIAL – ARMAS", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "1786", "nome": "INDENIZAÇÃO DE REPRESENTAÇÃO CASA MILITAR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1788", "nome": "REGIME DE PLANTÃO DE SOBREAVISO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1793", "nome": "ADICIONAL DE ATIVIDADE PENITENCIÁRIA", "consignavel": true, "ir": true, "previdencia": true, "desativada": true}, {"codigo": "1799", "nome": "INDENIZAÇÃO DE REPRESENTAÇÃO- ENCARGOS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1801", "nome": "BENEFÍCIO LEI 8246/86", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1802", "nome": "BENEFÍCIO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1804", "nome": "PENSÃO INDENIZATÓRIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1810", "nome": "FÉRIAS PENSÃO ESPECIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1822", "nome": "GRATIFICAÇÃO DE DIREÇÃO E ASSESSORAMENTO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1828", "nome": "GRAT. EXERC ENCARGOS AUXILIAR OU PROF – GEEP", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1832", "nome": "REGIME DE PLANTÃO DE SOBREAVISO TÉCNICO REALIZADO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1835", "nome": "HORAS PLANTÃO SOBREAVISO DOCENTE REALIZADO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1836", "nome": "AJUDA DE CUSTO EXERC.DA FUNÇÃO DE PROCURADOR FORA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1839", "nome": "GRATIF. EXERCÍCIO DE SERVIÇO DE TRÂNSITO ESPECIFICO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1840", "nome": "VENCIMENTO ÚNICO DE SECRETÁRIO DE ESTADO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1841", "nome": "GRATIF. EXERC. DE SERVIÇO DE TRÂNSITO ESPECÍFICO – GESTE II", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1842", "nome": "VENC. ÚNICO DE SECRETARIO DE ESTADO LEI COMPL. 202/2016", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1844", "nome": "DIFERENÇA DE SUBSÍDIO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1847", "nome": "SUBSTITUIÇÃO DO EXERC. DE FUNÇÃO LEI COMPLEMENTAR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1850", "nome": "SUBSTITUIÇÃO GRAT ART.41 DA LEI 7074/79", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1851", "nome": "FUNÇÃO COMISSIONADA DE CONFIANÇA – FCC", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1852", "nome": "SUBSTITUIÇÃO DE FUNÇÃO COMISSIONADA DE CONFIANÇA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1853", "nome": "GRATIFICAÇÃO POR ELABORAÇÃO TRABALHO TÉCNICO OU", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1856", "nome": "GRATIF.DE FUNÇÃO PARA CONSELHEIROS DO FEPGE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1857", "nome": "SUBSTIT. DA GRATIF. DE FUNÇÃO PARA CONSELHEIROS DO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1859", "nome": "DIFERENÇA DE CAIXA – JUDICIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1860", "nome": "INDENIZAÇÃO DE LICENÇA COMPENSATÓRIA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "1864", "nome": "GRATIFICACÃO POR CUMULAÇÃO DE CHEFIA DE UNIDADE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1865", "nome": "FUNÇÃO PRIVATIVA SOCIOEDUCATIVA – FPS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1870", "nome": "GRATIF. PELO EXERC. EM DETERMINADAS ZONAS LOCAIS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1871", "nome": "FUNÇÃO COMISSIONADA DE CONFIANÇA – FCC", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1872", "nome": "SUBSTITUIÇÃO FUNÇÃO COMISSIONADA DE CONFIANÇA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1873", "nome": "DIFERENÇA GRATIFICAÇÃO INSALUBRIDADE JUDICIAL – IES", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1878", "nome": "SERVIÇO EXTRAORDINÁRIO NOTURNO - RTT", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1881", "nome": "SERVIÇO EXTRAORDINÁRIO NOTURNO - Dom/Fer RTT", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1890", "nome": "GRATIF. EXERC. DE SERV. DE TRÂNSITO ESPECÍFICO-GESTE – V", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1906", "nome": "GRATIF. VARIÁVEL P/ VOGAIS JUNTA COMERCIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1909", "nome": "GRAT DE ATV UM PENAL OU COR INTRA-MUROS – GADI", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1913", "nome": "ACRÉSCIMO DE JORNADA PROFESSOR", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1914", "nome": "PERÍODO NOTURNO – ACRÉSCIMO DE JORNADA", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1915", "nome": "REDUTOR DE HORAS EXTRAS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1916", "nome": "GRATIFICAÇÃO ENCARGOS ESPECIAIS DE PROCURADORES", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1923", "nome": "GRATIFICAÇÃO DE ATIVIDADE DE SAÚDE – GAS", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1926", "nome": "GRAT. EX.DE ENC.ESP.EM CARGOS DE CHEFIA E ASSESS.DE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1929", "nome": "GRATIFICAÇÃO DE ATIVIDADE DE SAÚDE – GAS", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1936", "nome": "GRAT. ENC. ESPECIAIS DE PROCURADORES DO CONSELHO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1939", "nome": "DIF. SALARIAL – GSP- GRATIF. DE SEG. PATRIMONIAL", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1943", "nome": "GRATIFICAÇÃO INTRA MUROS – GRAIM", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1946", "nome": "GRAT.ENC.ESP.DE PROCURAD.QUE ATUAM NA PROCUR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1950", "nome": "FUNÇÃO PRIVATIVA – POLICIAL – FPP", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1951", "nome": "SUBSTITUIÇÃO DE FUNÇÃO PRIVATIVA POLICIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1953", "nome": "ADICIONAL NOTURNO - RTT", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "1963", "nome": "DIÁRIA ESPECIAL LEI Nº 19.130/17", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "1990", "nome": "CORREÇÃO MONETÁRIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2011", "nome": "SUBSTITUIÇÃO DE FPS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2079", "nome": "SERVIÇO EXTRAORDINÁRIO DIURNO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2139", "nome": "DIFERENÇA GRATIFICAÇÃO PERICULOSIDADE JUDICIAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2144", "nome": "REAJUSTE SALARIAL – JUDICIAL", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2179", "nome": "REPOSIÇÃO DE AULAS (AULAS EM ATRASO)", "consignavel": false, "ir": true, "previdencia": true, "desativada": true}, {"codigo": "2183", "nome": "AUXÍLIO TRANSPORTE – SEED", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2184", "nome": "AUXÍLIO TRANSPORTE – AULAS EXTRAORDINÁRIAS", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2185", "nome": "AUXÍLIO TRANSPORTE – ACRÉSCIMO DE JORNADA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2187", "nome": "AUXÍLIO TRANSPORTE – PECÚNIA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2188", "nome": "AUXÍLIO TRANSPORTE – ADEQUAÇÃO CARGA HORÁRIA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2190", "nome": "PARCELA TRANSITÓRIA PELO EXERCÍCIO DE ENSINO – JUDICIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2202", "nome": "REVISÃO – GRATIFICAÇÃO FUNÇÃO SECRETÁRIO ESTAB. ENSINO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2204", "nome": "REVISÃO – VENC. DOS CARGOS DE PROVIMENTO EM COMISSÃO (S/V)", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2205", "nome": "REVISÃO – GRATIFICAÇÃO FIXA DE CARGO EM COMISSÃO (C/V)", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2206", "nome": "REVISÃO – AULAS EXTRAORDINÁRIAS", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2208", "nome": "REVISÃO – GOZO DE FÉRIAS COMISSIONADOS", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2209", "nome": "REVISÃO – GRATIF. ADICIONAL POR TEMPO DE SERVIÇO – EMENDA 19", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2210", "nome": "REVISÃO – GRATIFICAÇÃO DE PERICULOSIDADE", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2211", "nome": "REVISÃO – PISO MAGISTÉRIO – AÇÃO ORDINÁRIA", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2212", "nome": "REVISÃO – GRATIFICAÇÃO ADICIONAL POR TEMPO DE SERVIÇO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2213", "nome": "REVISÃO – GRATIFICAÇÃO TIDE", "consignavel": false, "ir": true, "previdencia": true, "desativada": true}, {"codigo": "2214", "nome": "REVISÃO – SERVIÇO EXTRAORDINÁRIO DIURNO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2215", "nome": "REVISÃO – SALÁRIO-FAMÍLIA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2216", "nome": "REVISÃO – GRATIFICAÇÃO DECRETO 3105/97", "consignavel": true, "ir": true, "previdencia": true, "desativada": true}, {"codigo": "2217", "nome": "REVISÃO – GRATIFICAÇÃO DE EDUCAÇÃO ESPECIAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2218", "nome": "REVISÃO – GRAT. REP. GABINETE – DAS", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2219", "nome": "REVISÃO – GRAT. ENCARGOS ESPECIAIS", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2220", "nome": "REVISÃO – GRAT. REP. TIPO II", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2221", "nome": "REVISÃO – AULAS EXTRAORDINÁRIAS – HORA ATIVIDADE", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2222", "nome": "REVISÃO – FUNÇÃO GRATIFICADA", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2223", "nome": "REVISÃO – GRATIFICAÇÃO DE REPRESENTAÇÃO DE GABINETE", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2224", "nome": "REVISÃO – GRATIFICAÇÃO FUNÇÃO DIRETOR ESTABELECIMENTO DE", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2225", "nome": "REVISÃO – GRATIFICAÇÃO PELO EXERCÍCIO NO PERÍODO NOTURNO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2227", "nome": "REVISÃO – DIFERENÇA DO SALÁRIO MÍNIMO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2228", "nome": "REVISÃO – GRATIFICAÇÃO CHEFIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2229", "nome": "REVISÃO – GRATIFICAÇÃO DE INSALUBRIDADE", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2230", "nome": "REVISÃO – PRÊMIO DE PRODUTIVIDADE QUOTAS VAR. - ESF. FISCAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2233", "nome": "REVISÃO – PRÊMIO PRODUTIVIDADE – QUOTAS FIXAS", "consignavel": true, "ir": true, "previdencia": true, "desativada": true}, {"codigo": "2234", "nome": "REVISÃO – GRATIFICAÇÃO EXERCÍCIO EM ZONA FISCAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2235", "nome": "REVISÃO – SUBSTITUIÇÃO DE CARGO EM COMISSÃO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2236", "nome": "REVISÃO – REDUTOR SALARIAL", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2239", "nome": "REVISÃO – GOZO DE FÉRIAS – ESTATUTÁRIO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2240", "nome": "REVISÃO – SUBSTITUIÇÃO FUNÇÃO GRATIFICADA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2241", "nome": "REVISÃO – VANTAGEM PESSOAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2242", "nome": "REVISÃO – QUOTAS DE PRODUTIVIDADE ACUMULADAS EM CC", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2243", "nome": "REVISÃO – VENCIMENTO BASE", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2244", "nome": "REVISÃO – SERVIÇO EXTRAORDINÁRIO DIURNO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2245", "nome": "REVISÃO – SOLDO PESSOAL MILITAR", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2246", "nome": "REVISÃO – SOLDO DE GESTOR EM DELEGACIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2247", "nome": "REVISÃO – ABONO PERMANÊNCIA", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2249", "nome": "DIFERENÇA GRATIFICAÇÃO INSALUBRIDADE JUDICIAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2260", "nome": "REVISÃO – DIFERENÇA DE VENCIMENTOS", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2261", "nome": "REVISÃO – GRAT. EXEC. TRAB. ESPEC. RISCO VIDA E SAÚDE S/ ADIC E S/", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2276", "nome": "REVISÃO – GRATIFICAÇÃO DE PRESTAÇÃO DE SERVIÇOS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2279", "nome": "REVISÃO – CORREÇÃO MONETÁRIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2280", "nome": "AJUSTE DE VANTAGENS – SEM INCIDÊNCIA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2281", "nome": "REVISÃO – SUBSTITUIÇÕES", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2282", "nome": "REVISÃO – GRATIFICAÇÃO DE REPRESENTAÇÃO DE DELEGADOS", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2285", "nome": "REVISÃO – VENCIMENTO – HORA ATIVIDADE", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2286", "nome": "REVISÃO – GRAT. EXERC. TRAB. ESP. RISCO VIDA SAÚDE S/ ADIC", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2288", "nome": "REVISÃO – AJUDA DE CUSTOS", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2289", "nome": "REVISÃO – GRAT. TEMPO INTEGRAL – SOBRE A REMUNERAÇÃO", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2292", "nome": "REVISÃO – ADICIONAL DE VOO DIURNO – AAV/PARC. VARIÁVEL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2293", "nome": "REVISÃO – ADICIONAL DE VOO NOTURNO – AAV/PARC. VARIÁVEL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2294", "nome": "REVISÃO – GRATIFICAÇÃO FUNRESPOL", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2296", "nome": "REVISÃO – EQUIPARAÇÃO VENCIMENTOS – AÇÃO JUDICIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2297", "nome": "REVISÃO – PERÍODO NOTURNO – AULAS EXTRAORDINÁRIAS", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2299", "nome": "REVISÃO – TEMPO INTEGRAL E DEDIC. EXCLUSIVA – POLÍCIA CIVIL", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2301", "nome": "REVISÃO – GRATIFICAÇÃO REGÊNCIA DE CLASSE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2302", "nome": "REVISÃO – GRAT. DE ZONA E LOCAL – DEPEN", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2304", "nome": "REVISÃO – GRATIFICAÇÃO DE INCUMBÊNCIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2305", "nome": "REVISÃO – DIFERENÇA VENCIMENTOS – SENTENÇA JUDICIAL DIÁRIAS", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2306", "nome": "REVISÃO – GRATIFICAÇÃO FUNÇÃO DIRETOR AUXILIAR ESTAB. ENSINO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2307", "nome": "REVISÃO – SERVIÇO EXTRAORDINÁRIO NOTURNO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2308", "nome": "REVISÃO – SERVIÇO EXTRAORDINÁRIO – DOMINGO / FERIADO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2309", "nome": "REVISÃO – AJUDA PARA MANUTENÇÃO INSTRUMENTO / VESTUÁRIO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2310", "nome": "REVISÃO – GRAT. DE PERICULOSIDADE – TEC. RADIOLOGIA", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2312", "nome": "REVISÃO – TEMPO INTEGRAL E DEDICAÇÃO EXCLUSIVA – P. CIVIL", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2313", "nome": "REVISÃO – ADICIONAL TRANSFERÊNCIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2315", "nome": "REVISÃO – ABONO PIS/PASEP", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2316", "nome": "REVISÃO – GRATIFICAÇÃO RODOVIÁRIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2317", "nome": "REVISÃO – GRATIF. FUNÇÃO LEI 10118 ART. 13 TEATRO GUAÍRA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2318", "nome": "REVISÃO – GRATIFICAÇÃO DE REPRESENTAÇÃO DE ESCRITÓRIO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2319", "nome": "REVISÃO – ADICIONAL FÉRIAS NORMAIS – 1/3 C.F", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2320", "nome": "REVISÃO – SENTENÇA JUDICIAL ALUGUEL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2321", "nome": "REVISÃO – ADICIONAL NOTURNO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2324", "nome": "REVISÃO – SUBSTITUIÇÃO DE PESSOAL MILITAR – SOLDO", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2325", "nome": "REVISÃO – GRATIFICAÇÃO POLICIAL MILITAR ESPECIAL", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2326", "nome": "REVISÃO – SUBSTITUIÇÃO PM – GRATIFICAÇÃO ESPECIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2327", "nome": "REVISÃO – GRATIFICAÇÃO FUNÇÃO MILITAR (CURSOS)", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2328", "nome": "REVISÃO – RISCO DE VIDA – POLÍCIA MILITAR", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2330", "nome": "REVISÃO – INDENIZ. DE REPRESENT. PESSOAL MILITAR – CURSOS", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2331", "nome": "REVISÃO – AJUDA DE CUSTO DA PM", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "2332", "nome": "REVISÃO – AQUISIÇÃO DE UNIFORMES DO PM", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "2335", "nome": "REVISÃO – INDENIZAÇÃO SERVIÇO EXTRAORDINÁRIO- PM", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2336", "nome": "REVISÃO DEVOLUÇÃO DE VANTAGENS SEM INCIDÊNCIA DE PREVIDÊNCIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2341", "nome": "REVISÃO – OPERAÇÃO VERÃO", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "2342", "nome": "REVISÃO – GRATIFICAÇÃO LOCALIDADE ESPECIAL DA PM", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2347", "nome": "REVISÃO – AUXÍLIO ALIMENTAÇÃO", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2349", "nome": "REVISÃO – AUXÍLIO DOENÇA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2351", "nome": "REVISÃO – VERBA DE REPRESENTAÇÃO", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2352", "nome": "REVISÃO – ADICIONAL DE VOO – AAV (PARCELA FIXA)", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2355", "nome": "REVISÃO – GRATIFICAÇÃO DE INSALUBRIDADE – MANDADO DE SEGURANÇA", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2356", "nome": "REVISÃO – GRATIFICAÇÃO POR APRESENTAÇÃO DE ESPETÁCULO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2365", "nome": "REVISÃO – REPOSIÇÃO DE AULAS (AULAS EM ATRASO)", "consignavel": false, "ir": true, "previdencia": true, "desativada": true}, {"codigo": "2367", "nome": "REVISÃO – 13º SALÁRIO INDENIZADO/ EXONERAÇÃO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2368", "nome": "REVISÃO – FÉRIAS INDENIZADAS/PROPORCIONAIS", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2369", "nome": "REVISÃO – TERÇO CONSTITUCIONAL DE FÉRIAS INDENIZADAS", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2372", "nome": "REVISÃO – PRÊMIO ESPECIAL – ARMAS", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "2373", "nome": "REVISÃO – INDENIZAÇÃO DE REPRESENTAÇÃO CASA MILITAR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2376", "nome": "REVISÃO – ADICIONAL DE ATIVIDADE PENITENCIÁRIA", "consignavel": true, "ir": true, "previdencia": true, "desativada": true}, {"codigo": "2377", "nome": "REVISÃO – SALÁRIO MATERNIDADE", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2379", "nome": "REVISÃO – ADICIONAL DE TITULAÇÃO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2386", "nome": "REVISÃO – GRATIF. VARIÁVEL P/ VOGAIS JUNTA COMERCIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2387", "nome": "REVISÃO – GRAT DE ATV UM PENAL OU COR INTRA-MUROS – GADI", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2388", "nome": "REVISÃO – ACRÉSCIMO DE JORNADA PROFESSOR", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2390", "nome": "REVISÃO – ENC. ESPECIAIS/INDENIZ. DE REPRESENTAÇÃO- CAPE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2392", "nome": "REVISÃO – INDENIZAÇÃO DE REPRESENTAÇÃO – ASSESSORIA MILITAR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2394", "nome": "REVISÃO – AJUSTE FÉRIAS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2398", "nome": "REVISÃO – PISO SOCIAL COMPLEMENTAR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2399", "nome": "REVISÃO – 13º SALÁRIO INDENIZADO/ EXONERAÇÃO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2404", "nome": "REVISÃO – GRATIFICAÇÃO DE DIREÇÃO E ASSESSORAMENTO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2406", "nome": "REVISÃO – SUBSTITUIÇÃO FUNRESPOL", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2407", "nome": "REVISÃO – SUBSTITUIÇÃO GRAT ART.41 DA LEI 7074/79", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2408", "nome": "REVISÃO – GRAT. EXER ENC INST CURSO REC COND INFRA – GIRCE", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2409", "nome": "REVISÃO – GRAT. PELA REALIZ. TRAB. RELEVANTE ATIV. DE", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2411", "nome": "REVISÃO – GRATIFICAÇÃO DE ATIVIDADE ARTÍSTICA – GAA", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2412", "nome": "REVISÃO – GRAT EX ENC MEMBRO DE BCA EXAM TRÂNSITO – GEBET", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2413", "nome": "REVISÃO – GRAT. EXERC ENCARGOS AUXILIAR OU PROF – GEEP", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2414", "nome": "REVISÃO – GRATIF. PELO EXERC. EM DETERMINADAS ZONAS LOCAIS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2415", "nome": "REVISÃO – GRATIF. DE MANUTENÇÃO – JUDICIAL C/ DESCONTO PREVIDENC", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2420", "nome": "REVISÃO – AUXÍLIO TRANSPORTE – AULAS EXTRAORDINÁRIAS", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2421", "nome": "REVISÃO – AUXÍLIO TRANSPORTE – ACRÉSCIMO DE JORNADA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2422", "nome": "REVISÃO – PERÍODO NOTURNO – ACRÉSCIMO DE JORNADA", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2423", "nome": "REVISÃO – DIFERENÇA SALÁRIO MIN. ESTATUTÁRIO (CONGELADA)", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2425", "nome": "REVISÃO – REGIME DE PLANTÃO DE SOBREAVISO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2428", "nome": "REVISÃO – INDENIZAÇÃO DE REPRESENTAÇÃO- ENCARGOS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2430", "nome": "REVISÃO – REDUTOR DE HORAS EXTRAS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2436", "nome": "REVISÃO – GRATIF. PELO EXERC. DE ENC.DE MEMBRO DE BANCA", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2438", "nome": "REVISÃO – GRATIFICAÇÃO ENCARGOS ESPECIAIS DE PROCURADORES", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2439", "nome": "REVISÃO – GRAT. EX.DE ENC.ESP.EM CARGOS DE CHEFIA E ASSESS.DE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2440", "nome": "REVISÃO – GRAT. ENC. ESPECIAIS DE PROCURADORES DO CONSELHO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2441", "nome": "REVISÃO – GRAT.ENC.ESP.DE PROCURAD.QUE ATUAM NA PROCUR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2442", "nome": "REVISÃO – OPERAÇÃO ESCUDO", "consignavel": false, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2448", "nome": "REVISÃO – HORAS GRATIFICAÇÃO DE PLANTÃO AO DOCENTE – GPD", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2450", "nome": "REVISÃO – REMUN. PELO EXERC. DE C/C NAS IEES LEI 16372/09", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2451", "nome": "REVISÃO – FUNÇÕES ACADÊMICAS – IEES", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2453", "nome": "REVISÃO – GRATIF. PELO EXERCÍCIO DE ENCARGOS ESPECIAIS – GEE", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2454", "nome": "REVISÃO – CRÉDITO PARCELADO AÇÃO JUDICIAL – LEI 18664/2015", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2466", "nome": "REVISÃO – PRÊMIO PRODUTIVIDADE – PROCURADORES", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2479", "nome": "REVISÃO – GRATIFICAÇÃO DE TITULAÇÃO – AGEUNI", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2481", "nome": "REVISÃO – COMPLEMENTAÇÃO DE HORA ATIVIDADE", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2482", "nome": "REVISÃO – COMPLEMENT. DE HORA ATIVIDADE – AULAS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2487", "nome": "REVISÃO – AUXÍLIO TRANSPORTE – PECÚNIA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2530", "nome": "REVISÃO – PARCELA TRANSIT.PELO EXERC. DE ENSINO NAS ESCOLAS DE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2531", "nome": "REVISÃO – GRATIF. POR DESEMPENHO DE ATIV.FAZENDÁRIA – GEDAF", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2533", "nome": "REVISÃO – AUXÍLIO ALIMENTAÇÃO – LEI 20937/21", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2534", "nome": "REVISÃO – FUNÇÃO PRIVATIVA TRANSITÓRIA – FPT", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2574", "nome": "REVISÃO – GRATIFICAÇÃO DE INCENTIVO À TITULARIDADE – GITI", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2578", "nome": "REVISÃO – GRATIFICAÇÃO DE INCENTIVO ESCALONADA MENSAL – GIEM", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2616", "nome": "REVISÃO – AJUSTE FÉRIAS CARGO COMISSIONADO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2631", "nome": "REVISÃO – ABONO DE PERMANÊNCIA – DECRETO 8296/2017", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2654", "nome": "REVISÃO – ADEQUAÇÃO DE CARGA HORÁRIA-LC – LEI Nº 242/2021", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2667", "nome": "REVISÃO – FUNÇÃO DE GESTÃO PÚBLICA – FGP", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2700", "nome": "DEVOLUÇÃO DE VANTAGENS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2712", "nome": "REVISÃO – DIFERENÇA DE SOLDO – AÇÃO JUDICIAL", "consignavel": true, "ir": true, "previdencia": false, "desativada": true}, {"codigo": "2723", "nome": "REVISÃO – PRÊMIO PRODUTIVIDADE QUOTAS VAR. – DESEMP. PLURAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2745", "nome": "CRÉDITO PARCELADO AÇÃO JUDICIAL – LEI 18664/2015 – RRA", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2755", "nome": "REVISÃO – ASSISTENCIA SAÚDE – REPR", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2757", "nome": "REVISÃO – INDEN. DE REPRESENT. FORÇA ALFA – CIPOFRON-FA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2761", "nome": "REVISÃO – PRÊMIO PRODUTIV. QUOTAS VAR. – ESF. FISCAL – CARGO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2762", "nome": "REVISÃO – PRÊMIO PRODUTIVIDADE QUOTAS FIXAS CARGO COMISSÃO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2804", "nome": "REVISÃO – PENSÃO INDENIZATÓRIA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2808", "nome": "REVISÃO – BENEFÍCIO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2810", "nome": "REVISÃO – FÉRIAS PENSÃO ESPECIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2825", "nome": "REVISÃO – SUBSTITUIÇÃO FUNÇÃO DE GESTÃO TRIBUTÁRIA – FGT", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2832", "nome": "REVISÃO – REGIME DE PLANTÃO DE SOBREAVISO TÉCNICO REALIZADO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2835", "nome": "REVISÃO – HORAS PLANTÃO SOBREAVISO DOCENTE REALIZADO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2836", "nome": "REVISÃO – AJUDA DE CUSTO EXERC.DA FUNÇÃO DE PROCURADOR FORA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "2842", "nome": "REVISÃO – VENC. ÚNICO DE SECRETARIO DE ESTADO LEI COMPL. 202/2016", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2844", "nome": "REVISÃO – DIFERENÇA DE SUBSÍDIO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2847", "nome": "REVISÃO – SUBSTITUIÇÃO DO EXERC. DE FUNÇÃO LEI COMPLEMENTAR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2853", "nome": "REVISÃO – GRATIFICAÇÃO POR ELABORAÇÃO TRABALHO TÉCNICO OU", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2854", "nome": "REVISÃO – DIFERENÇA DE CAIXA – JUDICIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2856", "nome": "REVISÃO – GRATIF.DE FUNÇÃO PARA CONSELHEIROS DO FEPGE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2857", "nome": "REVISÃO – SUBSTIT. DA GRATIF. DE FUNÇÃO PARA CONSELHEIROS DO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2864", "nome": "REVISÃO – GRATIFICACÃO POR CUMULAÇÃO DE CHEFIA DE UNIDADE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2873", "nome": "REVISÃO – DIFERENÇA GRATIFICAÇÃO INSALUBRIDADE JUDICIAL – IES", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2875", "nome": "REVISÃO – FUNÇÃO DE GESTÃO TRIBUTÁRIA – FGT", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2878", "nome": "REVISÃO – SERVIÇO EXTRAORDINÁRIO NOTURNO - RTT", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2881", "nome": "REVISÃO – SERVIÇO EXTRAORDINÁRIO NOTURNO - Dom/Fer RTT", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2939", "nome": "REVISÃO – DIF. SALARIAL – GSP- GRATIF. DE SEG. PATRIMONIAL", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2943", "nome": "REVISÃO – GRATIFICAÇÃO INTRA MUROS – GRAIM", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2950", "nome": "REVISÃO – FUNÇÃO PRIVATIVA – POLICIAL – FPP", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2951", "nome": "REVISÃO – SUBSTITUIÇÃO DE FUNÇÃO PRIVATIVA POLICIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "2953", "nome": "REVISÃO – ADICIONAL NOTURNO - RTT", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "2963", "nome": "REVISÃO – DIÁRIA ESPECIAL LEI Nº 19.130/17", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3010", "nome": "REVISÃO – SUBSÍDIO DE FUNÇÃO COMISSIONADA EXECUTIVA – FCE", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3011", "nome": "REVISÃO – SUBSTITUIÇÃO DE FPS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3058", "nome": "REVISÃO – BÔNUS DE RESULTADO DE APRENDIZAGEM – BRA", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3080", "nome": "REVISÃO – ADICIONAL DE ATIVIDADE SOCIO EDUCATIVA – AAS", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3082", "nome": "REVISÃO – SUBSÍDIO DE CARGO EM COMISSIONADO EXECUTIVO – CCE -C/V e", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3137", "nome": "REVISÃO – GRATIFICAÇÃO DE RESULTADO APRENDIZAGEM - GRAP", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3188", "nome": "REVISÃO – AUXÍLIO TRANSPORTE – ADEQUAÇÃO CARGA HORÁRIA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "3205", "nome": "REVISÃO – GRATIFICAÇÃO DE PLANTÃO DOCENTE DE SOBREAVISO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3413", "nome": "REVISÃO – FUNÇÃO PRIVATIVA DO DETRAN – FPD IV", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3450", "nome": "REVISÃO – TIDE ADMINISTRATIVO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3451", "nome": "REVISÃO – GRAT ESP. SERV INATIVO COLÉGIO CÍVICO-MILITAR – GESICM", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3472", "nome": "REVISÃO – REMUNERAÇÃO ATIVIDADE DOCENTES", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3486", "nome": "REVISÃO – FUNÇÃO PRIVATIVA DO DETRAN – FPD I", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3487", "nome": "REVISÃO – FUNÇÃO PRIVATIVA DO DETRAN – FPD II", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3533", "nome": "GOZO DE FÉRIAS – ESTATUTÁRIO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3540", "nome": "AJUSTE FÉRIAS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3542", "nome": "INDENIZAÇÃO DE FÉRIAS – JUDICIAL", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "3562", "nome": "REVISÃO – REMUNERAÇÃO ATIVIDADE PROJETOS", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3565", "nome": "REVISÃO – REMUNERAÇÃO ATIVIDADE EXTENSÃO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3566", "nome": "GOZO DE FÉRIAS – PRÊMIO DE PRODUTIVIDADE PGE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3573", "nome": "ADICIONAL FÉRIAS NORMAIS – 1/3 C.F", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3599", "nome": "REVISÃO – GOZO DE FÉRIAS – PRÊMIO DE PRODUTIVIDADE PGE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3616", "nome": "REVISÃO – PARCELA COMPLEMENTAR DE VENCIMENTO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3620", "nome": "REVISÃO – ABONO LEI 21.108/2022", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3623", "nome": "13º SALÁRIO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3646", "nome": "REVISÃO – GRATIF. DE MANUT. – JUDICIAL SEM DESC.PREVIDENCIÁRIO", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3665", "nome": "REVISÃO – BÔNUS DE DESEMPENHO – BD", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3675", "nome": "REVISÃO – INSALUBRIDADE JUDICIAL – IEES", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3754", "nome": "REVISÃO – VERBA DE REPRESENTAÇÃO – LIMINAR JUDICIAL", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3774", "nome": "REVISÃO – FUNÇÃO PRIVATIVA DO DETRAN – FPD III", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3860", "nome": "REVISÃO – INDENIZAÇÃO DE LICENÇA COMPENSATÓRIA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "3865", "nome": "REVISÃO – FUNÇÃO PRIVATIVA SOCIOEDUCATIVA – FPS", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "3913", "nome": "13º SALÁRIO INDENIZADO/ EXONERAÇÃO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "3943", "nome": "FÉRIAS INDENIZADAS/PROPORCIONAIS", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "3963", "nome": "INDENIZAÇÃO – ART. 479 CLT", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "3990", "nome": "INDENIZAÇÃO POR REMOÇÃO DECRETO 8594/2013", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "4013", "nome": "TERÇO CONSTITUCIONAL DE FÉRIAS INDENIZADAS", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "4083", "nome": "INDENIZAÇÃO PERÍODO GESTACIONAL – LICENÇA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "4084", "nome": "REVISÃO – INDENIZAÇÃO PERÍODO GESTACIONAL – LICENÇA", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "4334", "nome": "REVISÃO – GRATIFICAÇÃO DE RESPONSABILIDADE ACADÊMICA – GRA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "4364", "nome": "REVISÃO – GRATIFICAÇÃO TECNOLOGIA E ENSINO (GTE)", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "5329", "nome": "REVISÃO – GRATIFICAÇÃO DE ATIVIDADE DE SAÚDE – GAS", "consignavel": true, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "5330", "nome": "REVISÃO – REGIME DE PLANTÃO SOBREAVISO-AGENTE UNIVERSITÁRIO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "5344", "nome": "REVISÃO – REAJUSTE SALARIAL – JUDICIAL", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "5421", "nome": "REVISÃO – CRÉDITO PARCELADO AÇÃO JUDICIAL – LEI 18664/2015 – RRA", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "5433", "nome": "FUNÇÃO COMISSIONADA DE CONFIANÇA IDR – FCCI JUDICIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "5816", "nome": "REVISÃO – INDENIZAÇÃO POR REMOÇÃO DECRETO 8594/2013", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "5846", "nome": "REVISÃO – SUBSTITUIÇÃO DE FUNÇÃO COMISSIONADA DE CONFIANÇA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "5860", "nome": "REVISÃO – FUNÇÃO COMISSIONADA DE CONFIANÇA – FCC", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "6390", "nome": "RESSARCIMENTO DE VALE TRANSPORTE", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "6410", "nome": "CONTRIBUIÇÃO – IPM CASCAVEL", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "6440", "nome": "REVISÃO – CONTRIBUIÇÃO – IPM CASCAVEL", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "6710", "nome": "FUNDO MILITAR", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "6720", "nome": "REVISÃO – FUNDO MILITAR", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "7380", "nome": "REVISÃO – DIFERENÇA DE VENCIMENTO JUDICIAL – CUMPRIMENTO DO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "7487", "nome": "REVISÃO – FUNÇÃO COMISSIONADA DE CONFIANÇA – FCC", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "7488", "nome": "REVISÃO – SUBSTITUIÇÃO FUNÇÃO COMISSIONADA DE CONFIANÇA", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "7490", "nome": "REVISÃO – GRATIF. EXERC. DE SERV. DE TRÂNSITO ESPECÍFICO-GESTE – V", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "7539", "nome": "REVISÃO – GRATIF. EXERCÍCIO DE SERVIÇO DE TRÂNSITO ESPECIFICO", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "7670", "nome": "REVISÃO – GRATIF. EXERC. DE SERVIÇO DE TRÂNSITO ESPECÍFICO – GESTE II", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "7705", "nome": "REVISÃO – FUNÇÃO DE DESENVOLVIMENTO RURAL – FDR", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "7711", "nome": "REVISÃO – REMUNERAÇÃO PELO EXERCÍCIO DO C/C LEI 18665 DE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "7712", "nome": "REVISÃO – REMUNERAÇÃO PELO EXERCÍCIO DA FGP – LEI 18665 DE", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "8133", "nome": "REVISÃO – FUNÇÃO COMISSIONADA DE CONFIANÇA IDR – FCCI JUDICIAL", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "8360", "nome": "REVISÃO – GRATIFICAÇÃO DE SEGURANÇA PATRIMONIAL – GSP", "consignavel": false, "ir": true, "previdencia": false, "desativada": false}, {"codigo": "8725", "nome": "REVISÃO – AUXÍLIO TRANSPORTE – SEED", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "8726", "nome": "REVISÃO – INDENIZAÇÃO – ART. 479 CLT", "consignavel": false, "ir": false, "previdencia": false, "desativada": false}, {"codigo": "8727", "nome": "REVISÃO – GRAT ATIV UM PENAL OU CORR INTRA MUROS – GADI", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "8728", "nome": "REVISÃO – GRATIFICAÇÃO DE ATIVIDADE DE SAÚDE – GAS", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "8729", "nome": "REVISÃO – 13º SALÁRIO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "8731", "nome": "REVISÃO – PRÊMIO PRODUTIV. QUOTAS ESF. FISCAL COLETIVO", "consignavel": false, "ir": true, "previdencia": true, "desativada": false}, {"codigo": "8732", "nome": "REVISÃO – OPERAÇÃO SAFRA", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "8733", "nome": "REVISÃO – OPERAÇÃO PAPAI NOEL – NATAL SEGURO", "consignavel": false, "ir": false, "previdencia": false, "desativada": true}, {"codigo": "8791", "nome": "REVISÃO – VENCIMENTO ÚNICO DE SECRETÁRIO DE ESTADO", "consignavel": true, "ir": true, "previdencia": true, "desativada": false}];
+const DADOS_DESCONTOS = [{"codigo": "6003", "nome": "INSS", "modo": "integral"}, {"codigo": "6007", "nome": "INSS FÉRIAS", "modo": "integral"}, {"codigo": "6013", "nome": "INSS – 13º SALÁRIO", "modo": "integral"}, {"codigo": "6023", "nome": "CONTRIBUIÇÃO PREVIDENCIÁRIA – FP", "modo": "integral"}, {"codigo": "6026", "nome": "CONTRIBUIÇÃO PREVIDENCIÁRIA – FF", "modo": "integral"}, {"codigo": "6029", "nome": "CONTRIBUIÇÃO PREVIDENCIÁRIA – 13º SALÁRIO – FF", "modo": "integral"}, {"codigo": "6033", "nome": "IMPOSTO DE RENDA (IRRF)", "modo": "rateio_ir"}, {"codigo": "6036", "nome": "CONTRIBUIÇÃO PREVIDENCIÁRIA – 13º SALÁRIO – FP", "modo": "integral"}, {"codigo": "6043", "nome": "IMPOSTO DE RENDA – 13º SALÁRIO", "modo": "rateio_ir"}, {"codigo": "6053", "nome": "IMPOSTO DE RENDA – FÉRIAS", "modo": "rateio_ir"}, {"codigo": "6092", "nome": "FUNDO PREVIDENCIÁRIO – VALOR FIXO", "modo": "integral"}, {"codigo": "6206", "nome": "FASPM – FUNDO DE SAÚDE DA POLÍCIA MILITAR", "modo": "integral"}, {"codigo": "6253", "nome": "SEGURO DE VIDA – PRPREV", "modo": "integral"}, {"codigo": "6256", "nome": "SEGURO JÓIA – PRPREV", "modo": "integral"}, {"codigo": "7119", "nome": "SENTENÇA JUDICIAL", "modo": "integral"}, {"codigo": "8943", "nome": "DEPÓSITO JUDICIAL – IRRF", "modo": "rateio_ir"}];
+
+// ═══ Motor de cálculo — mesma lógica do app.py ═══
+function motorCalcular(lancs, baseIrInformada) {
+  const linhas = lancs.map(l => ({
+    codigo: l.codigo, nome: l.nome, valor: Number(l.valor) || 0,
+    tipo: l.tipo, consignavel: !!l.consignavel, ir: !!l.ir,
+    modo: l.modo || 'integral',
+  }));
+
+  const vantagens = linhas.filter(l => l.tipo === 'vantagem');
+  const descontos = linhas.filter(l => l.tipo === 'desconto_obrig');
+
+  const base_consignavel = vantagens.filter(l => l.consignavel).reduce((s, l) => s + l.valor, 0);
+  const base_ir_marcacoes = vantagens.filter(l => l.ir).reduce((s, l) => s + l.valor, 0);
+
+  const informada = Number(baseIrInformada) || 0;
+  const usou_informada = informada > 0;
+  const base_ir = usou_informada ? informada : base_ir_marcacoes;
+
+  // O rateio nunca abate mais imposto do que foi descontado.
+  const fator = base_ir > 0 ? Math.min(base_consignavel / base_ir, 1.0) : 0;
+
+  descontos.forEach(d => {
+    d.rateado = d.modo === 'rateio_ir';
+    d.abatido = d.rateado ? d.valor * fator : d.valor;
+  });
+
+  const total_desc = descontos.reduce((s, d) => s + d.abatido, 0);
+  const total_desc_bruto = descontos.reduce((s, d) => s + d.valor, 0);
+  const base = Math.max(base_consignavel - total_desc, 0);
+  const margem_50 = base * 0.50;
+
+  return {
+    rubricas: linhas,
+    descontos,
+    total_vantagens_consignaveis: base_consignavel,
+    base_ir,
+    base_ir_marcacoes,
+    base_ir_informada: usou_informada,
+    fator_rateio: fator,
+    total_descontos_obrigatorios: total_desc,
+    total_descontos_bruto: total_desc_bruto,
+    base,
+    margem_40: base * 0.40,
+    margem_10: base * 0.10,
+    margem_50,
+    margem_70: margem_50 * 1.20,
+  };
+}
+
+const DADOS_MANUAL = {
+  rubricas_consignaveis: DADOS_RUBRICAS.filter(r => r.consignavel && !r.desativada && !r.nome.startsWith('REVISÃO'))
+                                        .map(r => ({codigo: r.codigo, nome: r.nome})),
+  desativadas: DADOS_RUBRICAS.filter(r => r.consignavel && r.desativada && !r.nome.startsWith('REVISÃO'))
+                             .map(r => ({codigo: r.codigo, nome: r.nome})),
+  descontos_obrigatorios: DADOS_DESCONTOS.map(x => ({
+    codigo: x.codigo, nome: x.nome,
+    tipo: x.modo === 'rateio_ir' ? 'Rateado pela base' : 'Valor integral',
+  })),
+  calculo: {
+    formula_base: 'Rubricas Consignáveis − Descontos Obrigatórios = Valor Base',
+    formula_ir:   'IRRF × (Base Consignável ÷ Base de IR) = IRRF Abatido',
+    formula_40:   'Valor Base × 40% = Margem de 40%',
+    formula_10:   'Valor Base × 10% = Margem de 10%',
+    formula_50:   '40% + 10% = Margem de 50%',
+    formula_70:   '50% + 20% sobre os 50% = Margem de 70%',
+  },
+  nao_entra: [
+    {nome: 'Auxílio Alimentação (1533)', motivo: 'Natureza indenizatória'},
+    {nome: 'Auxílio Transporte (2187)', motivo: 'Natureza indenizatória'},
+    {nome: 'Serviço Extraordinário Diurno (1079)', motivo: 'Verba eventual — incide IR'},
+    {nome: 'Serviço Extraord. Domingo/Feriado (1476)', motivo: 'Verba eventual — incide IR'},
+    {nome: 'Diárias e Ajudas de Custo', motivo: 'Natureza indenizatória'},
+    {nome: '13º Salário', motivo: 'Não compõe base mensal'},
+    {nome: 'Férias – 1/3 Constitucional', motivo: 'Adicional não permanente'},
+  ],
+};
+</script>
+<script>
+const AVISO_PADRAO = 'Digite um código do Manual — descrição, consignável e IR vêm sozinhos.';
+let lancamentos = [];
+let mapa = {};          // codigo -> ficha do manual
+let descontos = {};     // codigo -> {nome, modo}
+let manualCarregado = false;
+let modoBaseIr = 'auto';   // 'auto' = soma das marcações IR | 'manual' = valor do contracheque
+let baseIrDigitada = 0;
+let timer = null;
+
+const el = id => document.getElementById(id);
+const fmt = v => (v || 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+const fmtNum = v => (Number(v) || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function paraNumero(txt) {
+  const s = String(txt ?? '').trim().replace(/[^\d.,-]/g, '');
+  if (!s) return 0;
+  const virgula = s.lastIndexOf(','), ponto = s.lastIndexOf('.');
+  let dec;
+  if (virgula > -1 && ponto > -1) dec = Math.max(virgula, ponto);
+  else if (virgula > -1) dec = virgula;
+  else if (ponto > -1) dec = (s.length - ponto - 1) === 3 ? -1 : ponto;
+  else dec = -1;
+  if (dec === -1) return parseFloat(s.replace(/[.,]/g, '')) || 0;
+  const inteiro = s.slice(0, dec).replace(/[.,]/g, '');
+  const fracao = s.slice(dec + 1).replace(/[.,]/g, '');
+  return parseFloat((inteiro || '0') + '.' + fracao) || 0;
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    const aba = btn.dataset.aba;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'aba-' + aba));
+    if (aba === 'manual' && !manualCarregado) carregarManual();
+  };
+});
+
+function mostrarErro(t) {
+  el('erro').textContent = t || '';
+  el('erro').style.display = t ? 'block' : 'none';
+}
+
+// ── Catálogo do manual ──
+function carregarCatalogo() {
+  const lista = el('lista-codigos');
+  DADOS_RUBRICAS.forEach(r => {
+    mapa[r.codigo] = r;
+    const o = document.createElement('option');
+    o.value = r.codigo; o.label = r.nome;
+    lista.appendChild(o);
+  });
+  DADOS_DESCONTOS.forEach(x => {
+    descontos[x.codigo] = x;
+    const o = document.createElement('option');
+    o.value = x.codigo; o.label = x.nome;
+    lista.appendChild(o);
+  });
+  el('previa').textContent = AVISO_PADRAO;
+}
+
+function classificar(cod) {
+  cod = String(cod || '').trim();
+  if (descontos[cod]) return {tipo:'desconto_obrig', consignavel:false, ir:false,
+                              nome:descontos[cod].nome, modo:descontos[cod].modo, conhecida:true};
+  const r = mapa[cod];
+  if (r) return {tipo:'vantagem', consignavel:r.consignavel, ir:r.ir, nome:r.nome,
+                 modo:null, conhecida:true, desativada:r.desativada};
+  return {tipo:'vantagem', consignavel:false, ir:false, nome:'', modo:null, conhecida:false};
+}
+
+el('in-cod').addEventListener('input', () => {
+  const cod = el('in-cod').value.trim();
+  const p = el('previa');
+  if (!cod) { el('in-nome').value = ''; p.textContent = AVISO_PADRAO; return; }
+  const c = classificar(cod);
+  if (!c.conhecida) {
+    el('in-nome').value = '';
+    p.innerHTML = '<span class="tag tag-nao">Fora do manual</span>'
+      + '<span>Entra como vantagem sem consignável e sem IR. Ajuste as marcações na tabela.</span>';
+    return;
+  }
+  el('in-nome').value = c.nome;
+  let tags = '';
+  if (c.tipo === 'desconto_obrig') {
+    tags = '<span class="tag tag-desc">Desconto obrigatório</span>'
+         + (c.modo === 'rateio_ir' ? '<span class="tag tag-ir">Rateado pela base</span>' : '<span class="tag tag-nao">Valor integral</span>');
+  } else {
+    tags = c.consignavel ? '<span class="tag tag-sim">Consignável</span>' : '<span class="tag tag-nao">Não consignável</span>';
+    tags += c.ir ? '<span class="tag tag-ir">Incide IR</span>' : '<span class="tag tag-nao">Sem IR</span>';
+    if (c.desativada) tags += '<span class="tag tag-alerta">Desativada no manual</span>';
+  }
+  p.innerHTML = tags + '<span>' + esc(c.nome) + '</span>';
+});
+
+function adicionar() {
+  const cod = el('in-cod').value.trim();
+  const valor = paraNumero(el('in-valor').value);
+  if (!cod) { mostrarErro('Informe o código da rubrica.'); el('in-cod').focus(); return; }
+  if (!/^\d{1,4}$/.test(cod)) { mostrarErro('O código tem no máximo 4 dígitos.'); el('in-cod').focus(); return; }
+  if (valor <= 0) { mostrarErro('Informe um valor maior que zero.'); el('in-valor').focus(); return; }
+  if (lancamentos.some(l => l.codigo === cod)) { mostrarErro('A rubrica ' + cod + ' já está lançada. Edite o valor na tabela.'); return; }
+
+  const c = classificar(cod);
+  lancamentos.push({codigo:cod, nome: el('in-nome').value.trim() || c.nome || 'Rubrica ' + cod,
+                    valor, tipo:c.tipo, consignavel:c.consignavel, ir:c.ir, modo:c.modo});
+  mostrarErro('');
+  el('in-cod').value = ''; el('in-nome').value = ''; el('in-valor').value = '';
+  el('previa').textContent = AVISO_PADRAO;
+  el('in-cod').focus();
+  desenhar();
+  calcular();
+}
+
+el('btn-add').onclick = adicionar;
+['in-cod','in-nome','in-valor'].forEach(id =>
+  el(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); adicionar(); } }));
+
+// ── Tabelas ──
+const GRUPOS = [
+  {id:'consignavel', titulo:'Rubricas consignáveis', pill:'', teste: l => l.tipo === 'vantagem' && l.consignavel},
+  {id:'naoconsig',   titulo:'Vantagens não consignáveis', pill:'cinza', teste: l => l.tipo === 'vantagem' && !l.consignavel},
+  {id:'desconto',    titulo:'Descontos obrigatórios', pill:'vermelho', teste: l => l.tipo === 'desconto_obrig'},
+];
+
+function desenhar() {
+  if (!lancamentos.length) {
+    el('tabelas').innerHTML = `<div class="bloco"><div class="vazio">
+      Nenhuma rubrica lançada ainda.<br>Comece pelo <b>1005 — Vencimento Base</b>.
+    </div></div>`;
+    return;
+  }
+  el('tabelas').innerHTML = GRUPOS.map(g => {
+    const linhas = lancamentos.map((l, i) => [l, i]).filter(([l]) => g.teste(l));
+    if (!linhas.length) return '';
+    const total = linhas.reduce((s, [l]) => s + (Number(l.valor) || 0), 0);
+    const ultima = g.id === 'desconto' ? 'Abatido' : 'Marcações';
+    return `
+    <div class="bloco fade-in" data-grupo="${g.id}">
+      <div class="bloco-cab">
+        <h2>${g.titulo}</h2>
+        <span class="pill ${g.pill}">${fmt(total)}</span>
+      </div>
+      <div class="linha linha-cab"><span>Cód.</span><span>Descrição</span><span style="text-align:right">Valor</span><span style="text-align:center">${ultima}</span><span></span></div>
+      ${linhas.map(([l, i]) => linhaHTML(l, i)).join('')}
+    </div>`;
+  }).join('');
+}
+
+function linhaHTML(l, i) {
+  const desconto = l.tipo === 'desconto_obrig';
+  const classeValor = desconto ? 'debito' : (l.consignavel ? 'credito' : 'neutro');
+  const cod = `<span class="cod">${esc(l.codigo)}</span>`;
+  const nome = `<input class="campo-linha nome" value="${esc(l.nome)}" data-i="${i}" data-campo="nome">`;
+  const valor = `<input class="campo-linha valor ${classeValor}" value="${fmtNum(l.valor)}" data-i="${i}" data-campo="valor" inputmode="decimal">`;
+  const x = `<button class="btn-x" data-del="${i}" title="Remover">×</button>`;
+
+  const ultima = desconto
+    ? `<span class="abatido" data-abatido="${i}">—</span>`
+    : `<div class="marcas">
+         <button class="marca ${l.consignavel ? 'on' : ''}" data-i="${i}" data-flag="consignavel"
+                 title="Entra na base consignável">CONS</button>
+         <button class="marca ${l.ir ? 'on' : ''}" data-i="${i}" data-flag="ir"
+                 title="Incide imposto de renda — entra no denominador do rateio">IR</button>
+       </div>`;
+  return `<div class="linha">${cod}${nome}${valor}${ultima}${x}</div>`;
+}
+
+el('tabelas').addEventListener('input', e => {
+  const a = e.target;
+  if (!a.dataset.campo) return;
+  const l = lancamentos[+a.dataset.i];
+  if (!l) return;
+  l[a.dataset.campo] = a.dataset.campo === 'valor' ? paraNumero(a.value) : a.value;
+  clearTimeout(timer);
+  timer = setTimeout(() => { atualizarPills(); calcular(); }, 260);
+});
+
+el('tabelas').addEventListener('click', e => {
+  const a = e.target;
+  if (a.dataset.flag) {
+    const l = lancamentos[+a.dataset.i];
+    l[a.dataset.flag] = !l[a.dataset.flag];
+    desenhar();
+    calcular();
+    return;
+  }
+  if (a.dataset.del !== undefined) {
+    lancamentos.splice(+a.dataset.del, 1);
+    desenhar();
+    calcular();
+  }
+});
+
+// ── Base de cálculo do IR ──
+document.querySelectorAll('.opcao').forEach(btn => {
+  btn.onclick = () => {
+    modoBaseIr = btn.dataset.modo;
+    document.querySelectorAll('.opcao').forEach(o => o.classList.toggle('on', o === btn));
+    el('base-ir-entrada').style.display = modoBaseIr === 'manual' ? 'grid' : 'none';
+    if (modoBaseIr === 'manual') el('in-baseir').focus();
+    calcular();
+  };
+});
+
+el('in-baseir').addEventListener('input', e => {
+  baseIrDigitada = paraNumero(e.target.value);
+  clearTimeout(timer);
+  timer = setTimeout(calcular, 260);
+});
+
+function resumoBaseIr(d) {
+  const caixa = el('base-ir-resumo');
+  if (!caixa) return;
+  const temIrrf = (d.descontos || []).some(x => x.rateado);
+
+  if (!temIrrf) {
+    caixa.innerHTML = 'Nenhum desconto de imposto de renda lançado ainda — '
+      + 'a base de IR só passa a valer quando você lançar a rubrica 6033.';
+    return;
+  }
+  if (d.base_ir <= 0) {
+    caixa.innerHTML = 'Informe a base de IR para o rateio acontecer. '
+      + 'Sem ela o imposto seria abatido inteiro e a margem sairia menor do que a real.';
+    return;
+  }
+  const pct = (d.fator_rateio * 100).toFixed(2).replace('.', ',');
+  const abatido = d.descontos.filter(x => x.rateado).reduce((t, x) => t + x.abatido, 0);
+  const cheio = d.descontos.filter(x => x.rateado).reduce((t, x) => t + x.valor, 0);
+
+  if (d.fator_rateio >= 1) {
+    caixa.innerHTML = `Base de IR <b>${fmt(d.base_ir)}</b>, igual à base consignável — `
+      + `o imposto é abatido por inteiro (<b>${fmt(cheio)}</b>). `
+      + `Se no contracheque houver verba tributável que não é consignável, lance-a acima ou informe a base do contracheque.`;
+    return;
+  }
+  caixa.innerHTML = `Base de IR <b>${fmt(d.base_ir)}</b> · fator <b>${pct}%</b>. `
+    + `Dos <b>${fmt(cheio)}</b> de imposto, só <b>${fmt(abatido)}</b> reduzem a margem — `
+    + `sobram ${fmt(cheio - abatido)} que ficam de fora.`;
+}
+
+function atualizarPills() {
+  document.querySelectorAll('#tabelas .bloco').forEach(bloco => {
+    const g = GRUPOS.find(x => x.id === bloco.dataset.grupo);
+    if (!g) return;
+    const total = lancamentos.filter(g.teste).reduce((s, l) => s + (Number(l.valor) || 0), 0);
+    const pill = bloco.querySelector('.pill');
+    if (pill) pill.textContent = fmt(total);
+  });
+}
+
+// ── Cálculo ──
+function calcular() {
+  if (!lancamentos.length) { render(null); return; }
+  render(motorCalcular(lancamentos, modoBaseIr === 'manual' ? baseIrDigitada : null));
+}
+
+function render(d) {
+  const painel = el('painel');
+  const cartao = el('base-ir-card');
+  if (!d) {
+    painel.innerHTML = `<div class="painel-vazio"><span class="icone">🧾</span>
+      Lance as rubricas ao lado para ver a margem calculada aqui.</div>`;
+    if (cartao) cartao.style.display = 'none';
+    return;
+  }
+  if (cartao) cartao.style.display = lancamentos.length ? 'block' : 'none';
+  resumoBaseIr(d);
+
+  // Preenche a coluna "Abatido" de cada desconto
+  document.querySelectorAll('[data-abatido]').forEach(s => s.textContent = '—');
+  (d.descontos || []).forEach(x => {
+    const i = lancamentos.findIndex(l => l.tipo === 'desconto_obrig' && l.codigo === x.codigo);
+    const span = document.querySelector(`[data-abatido="${i}"]`);
+    if (span) span.innerHTML = x.rateado ? `<b>${fmtNum(x.abatido)}</b>` : fmtNum(x.abatido);
+  });
+
+  const irrf = (d.descontos || []).filter(x => x.rateado);
+  const temRateio = irrf.length > 0 && d.base_ir > 0;
+  const pct = (d.fator_rateio * 100).toFixed(2).replace('.', ',');
+
+  painel.innerHTML = `
+    <div class="res-block res-totais res-vant fade-in">
+      <div><div class="res-block-label">Base consignável</div></div>
+      <div class="res-block-value">${fmt(d.total_vantagens_consignaveis)}</div>
+    </div>
+
+    <div class="res-block res-totais res-ir fade-in">
+      <div><div class="res-block-label">Base de IR</div>
+      <div class="res-block-formula">${d.base_ir_informada ? 'informada do contracheque' : 'soma das rubricas marcadas IR'}</div></div>
+      <div class="res-block-value">${fmt(d.base_ir)}</div>
+    </div>
+
+    ${temRateio ? `
+    <div class="rateio fade-in">
+      <div class="rateio-tit">Rateio do imposto de renda</div>
+      Só a fatia do IRRF que recai sobre a base consignável reduz a margem.
+      <div class="rateio-conta">${fmtNum(irrf[0].valor)} × ${fmtNum(d.total_vantagens_consignaveis)} ÷ ${fmtNum(d.base_ir)} = <b>${fmtNum(irrf.reduce((s,x)=>s+x.abatido,0))}</b></div>
+      Fator: <b>${pct}%</b> · sobram <b>${fmt(irrf.reduce((s,x)=>s+x.valor-x.abatido,0))}</b> que não são abatidos.
+    </div>` : ''}
+
+    <div class="res-block res-totais res-desc fade-in">
+      <div><div class="res-block-label">Descontos abatidos</div>
+      ${d.total_descontos_bruto > d.total_descontos_obrigatorios ? `<div class="res-block-formula">de ${fmt(d.total_descontos_bruto)} lançados</div>` : ''}</div>
+      <div class="res-block-value">−${fmt(d.total_descontos_obrigatorios).replace('R$', '').trim()}</div>
+    </div>
+
+    <div class="res-block res-base fade-in">
+      <div><div class="res-block-label">Valor Base para Margem</div>
+      <div class="res-block-formula">${fmt(d.total_vantagens_consignaveis)} − ${fmt(d.total_descontos_obrigatorios)}</div></div>
+      <div class="res-block-value">${fmt(d.base)}</div>
+    </div>
+
+    <div class="res-block res-40 fade-in">
+      <div><div class="res-block-label">Margem de 40%</div><div class="res-block-formula">Base × 40%</div></div>
+      <div class="res-block-value">${fmt(d.margem_40)}</div>
+    </div>
+
+    <div class="res-block res-10 fade-in">
+      <div><div class="res-block-label">Margem de 10%</div><div class="res-block-formula">Base × 10% · cartão consignado</div></div>
+      <div class="res-block-value">${fmt(d.margem_10)}</div>
+    </div>
+
+    <div class="res-block res-50 fade-in">
+      <div><div class="res-block-label">Margem de 50%</div><div class="res-block-formula">40% + 10%</div></div>
+      <div class="res-block-value">${fmt(d.margem_50)}</div>
+    </div>
+
+    <div class="res-block res-70 fade-in">
+      <div><div class="res-block-label">Margem total de 70%</div><div class="res-block-formula">50% + 20% sobre os 50%</div></div>
+      <div class="res-block-value">${fmt(d.margem_70)}</div>
+    </div>`;
+}
+
+// ── Manual ──
+function carregarManual() {
+  renderManual(DADOS_MANUAL);
+  manualCarregado = true;
+}
+
+function renderManual(d) {
+  el('manual-wrap').innerHTML = `
+    <div class="rubrica-panel fade-in">
+      <div class="rubrica-panel-header">
+        <h2><span class="rubrica-count-badge">${d.rubricas_consignaveis.length}</span> Rubricas com Líquido Consignável: SIM</h2>
+        <p>Fonte: Manual de Vantagens e Descontos – RH Paraná / META 4 – Abril/2026 (DRH/DGF).
+        Mais ${d.desativadas.length} rubricas consignáveis constam como desativadas e ficam fora desta lista.</p>
+      </div>
+      <div class="rubrica-search"><input type="text" id="busca-rubrica" placeholder="Buscar por código ou nome..."></div>
+      <div class="rubrica-grid" id="rubrica-grid"></div>
+    </div>
+
+    <div class="desconto-panel fade-in">
+      <div class="desconto-panel-header">
+        <h2>Descontos Obrigatórios</h2>
+        <p>O imposto de renda entra rateado — só a parte que recai sobre a base consignável.
+        Os demais são abatidos pelo valor integral.</p>
+      </div>
+      ${d.descontos_obrigatorios.map(x => `
+        <div class="desconto-item">
+          <div><div class="desconto-nome">${esc(x.nome)}</div><div class="desconto-cod">Cód. ${x.codigo}</div></div>
+          <span class="desconto-tipo ${x.tipo === 'Rateado pela base' ? 'rateado' : ''}">${esc(x.tipo)}</span>
+        </div>`).join('')}
+    </div>
+
+    <div class="calculo-panel fade-in">
+      <div class="calculo-panel-header"><h2>Como o Cálculo Funciona</h2></div>
+      ${[
+        ['s1','Base consignável','Some as vantagens com Líquido Consignável: Sim no manual.','Σ vantagens consignáveis = Base Consignável'],
+        ['s2','Base de IR','Some as vantagens sobre as quais incide imposto de renda. Inclui verbas que não são consignáveis, como serviço extraordinário.','Σ vantagens com incidência de IR = Base de IR'],
+        ['s3','IRRF rateado',"Só a fatia do imposto proporcional à base consignável reduz a margem. Os demais descontos entram pelo valor cheio.",d.calculo.formula_ir],
+        ['s4','Valor Base para Margem','Base consignável menos os descontos já abatidos.',d.calculo.formula_base],
+        ['s5','Margens de 40% e 10%','Empréstimo consignado e cartão consignado.',d.calculo.formula_40 + '  ·  ' + d.calculo.formula_10],
+        ['s6','Margem Total de 70%','Aplica-se mais 20% sobre os 50%.',d.calculo.formula_70],
+      ].map(([cls,tit,desc,formula],n) => `
+        <div class="calculo-step">
+          <span class="calculo-step-num ${cls}">${n+1}</span>
+          <div><div class="calculo-step-title">${tit}</div>
+          <div class="calculo-step-desc">${desc}</div>
+          <div class="calculo-step-formula">${esc(formula)}</div></div>
+        </div>`).join('')}
+    </div>
+
+    <div class="naoentra-panel fade-in">
+      <div class="naoentra-panel-header"><h2>O que NÃO entra na base consignável</h2></div>
+      ${d.nao_entra.map(n => `
+        <div class="naoentra-item">
+          <span class="naoentra-nome">${esc(n.nome)}</span>
+          <span class="naoentra-motivo">${esc(n.motivo)}</span>
+        </div>`).join('')}
+    </div>`;
+
+  window._rubricas = d.rubricas_consignaveis;
+  filtrarRubricas('');
+  el('busca-rubrica').oninput = e => filtrarRubricas(e.target.value);
+}
+
+function filtrarRubricas(q) {
+  const grid = el('rubrica-grid');
+  if (!grid || !window._rubricas) return;
+  const t = q.toLowerCase();
+  const lista = t ? window._rubricas.filter(r => r.codigo.includes(t) || r.nome.toLowerCase().includes(t)) : window._rubricas;
+  grid.innerHTML = lista.length
+    ? lista.map(r => `<div class="rubrica-item"><span class="rubrica-cod">${r.codigo}</span><span class="rubrica-nome">${esc(r.nome)}</span></div>`).join('')
+    : `<div class="vazio">Nenhuma rubrica com esse termo.</div>`;
+}
+
+desenhar();
+render(null);
+carregarCatalogo();
+</script>
+</body>
+</html>
